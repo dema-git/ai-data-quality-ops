@@ -16,6 +16,10 @@ mc mb --ignore-existing local/events-silver
 mc mb --ignore-existing local/events-silver-archive
 
 
+# QUALITY (rejected Bronze records)
+mc mb --ignore-existing local/events-quality-issues
+
+
 # GOLD — Page Views, active + archive buckets
 mc mb --ignore-existing local/events-gold-page-views
 mc mb --ignore-existing local/events-gold-page-views-archive

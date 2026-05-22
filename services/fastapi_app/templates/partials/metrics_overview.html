@@ -83,17 +83,39 @@
     </div>
 </div>
 
+<!-- Quality -->
+<div class="col">
+    <div class="card shadow-sm h-100 card-quality">
+        <div class="card-body py-3">
+            <div class="text-uppercase fw-semibold mb-2 quality fs-4">
+                Quality
+            </div>
+
+            <div class="mb-1">
+                <div class="text-muted fs-6">Rejected rows</div>
+                <div class="fs-5 fw-semibold">{{ m.quality_issue_rows }}</div>
+            </div>
+
+            <div class="text-muted fs-6">
+                Files: {{ m.quality_issue_files }}
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <style>
     .bronze { color: #cd7f32; }
     .silver { color: #c0c0c0; }
     .gold   { color: #ffd700; }
+    .quality { color: #b02a37; }
 
     .card-bronze { background: rgba(205, 127, 50, 0.08); }
     .card-silver { background: rgba(192, 192, 192, 0.10); }
     .card-gold   { background: rgba(255, 215, 0,   0.10); }
+    .card-quality { background: rgba(176, 42, 55, 0.08); }
 
-    .card-bronze, .card-silver, .card-gold {
+    .card-bronze, .card-silver, .card-gold, .card-quality {
         border: 1px solid rgba(0,0,0,0.05);
     }
 </style>
