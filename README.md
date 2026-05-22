@@ -56,13 +56,15 @@ Runtime folders such as `pgdata`, `minio-data`, and `shared_logs` are created lo
 3. Events are sent to Kafka.
 4. A consumer writes incoming events to Bronze Parquet files in MinIO.
 5. Airflow triggers the full ETL flow.
-6. Bronze files are transformed into Silver files.
-7. Silver files are transformed into two Gold datasets:
+6. Bronze files are validated.
+7. Valid Bronze rows are transformed into Silver files.
+8. Invalid Bronze rows are written to the `events-quality-issues` quarantine bucket.
+9. Silver files are transformed into two Gold datasets:
    - `gold_page_views`
    - `gold_product_events`
-8. Gold files are loaded into PostgreSQL.
-9. Processed files are registered in `pipeline.outbox_tasks`.
-10. Archive and cleanup DAGs move/remove files based on outbox state.
+10. Gold files are loaded into PostgreSQL.
+11. Processed files are registered in `pipeline.outbox_tasks`.
+12. Archive and cleanup DAGs move/remove files based on outbox state.
 
 ## Medallion Layers
 
@@ -73,6 +75,8 @@ Raw Kafka events are written to MinIO as Parquet files. The Bronze layer is appe
 ### Silver
 
 Bronze events are cleaned and normalized into a more consistent event shape. Silver still lives in MinIO, so intermediate data is not coupled to PostgreSQL.
+
+Before a Bronze event is promoted to Silver, it passes deterministic quality checks. Invalid events do not stop the whole ETL run. They are written to the `events-quality-issues` bucket with the failed field, issue type, severity, original raw event, and optional injected test issue marker.
 
 ### Gold
 
