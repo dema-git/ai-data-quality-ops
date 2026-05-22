@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure local env files are not tracked
+        run: |
+          tracked_env_files="$(git ls-files '.env' '*.env' '**/*.env')"
+          if [ -n "$tracked_env_files" ]; then
+            echo "Local env files must not be tracked:"
+            echo "$tracked_env_files"
+            exit 1
+          fi
+
+      - name: Create CI env file
+        run: cp .env.example .env
+
+      - name: Validate test compose config
+        run: docker compose -p data-flow-tests -f docker-compose.tests.yml config
+
+      - name: Run test suite
+        run: make test

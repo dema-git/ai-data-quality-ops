@@ -1,0 +1,132 @@
+x-airflow-common: &airflow-common
+  image: apache/airflow:3.1.7-python3.11
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__FERNET_KEY: "W1vZQO7U4vq7JjOvn6cs1g3_fA4Y4FxXw4J5y6j0zK8="
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow_pgdb:5432/airflow_db
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: "http://airflow-api-server:8080/execution/"
+    OPERATIONAL_API_TOKEN: ${OPERATIONAL_API_TOKEN:-medallion-ops-token}
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/plugins:/opt/airflow/plugins
+    - ./shared_logs/dags:/opt/airflow/logs
+    - ./scripts:/opt/airflow/scripts
+    - airflow_init_flag:/opt/airflow
+  networks:
+    - app_network
+
+
+services:
+  airflow_pgdb:
+    image: postgres:16.11
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow_db
+    volumes:
+      - ./init-db:/docker-entrypoint-initdb.d
+      - pgdata_airflow:/var/lib/postgresql/data
+    networks:
+      - app_network
+    restart: always
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U airflow -d airflow_db" ]
+      interval: 5s
+      retries: 5
+
+
+  airflow-init:
+    <<: *airflow-common
+    depends_on:
+      airflow_pgdb:
+        condition: service_healthy
+    command: >
+      bash -c '
+        airflow db migrate &&
+        airflow users create \
+          --username admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@example.com \
+          --password admin &&
+        touch /opt/airflow/.airflow_initialized
+      '
+    restart: "no"
+
+
+  airflow-scheduler:
+    <<: *airflow-common
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      airflow_pgdb:
+        condition: service_healthy
+    command: scheduler
+    restart: always
+    healthcheck:
+      test: [ "CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname $(hostname)" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+
+  airflow-webserver:
+    <<: *airflow-common
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      airflow_pgdb:
+        condition: service_healthy
+    command: api-server
+    ports:
+      - "${AIRFLOW_WEBSERVER_PORT}:8080"
+    restart: always
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/api/v2/monitor/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  airflow-api-server:
+    <<: *airflow-common
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      airflow_pgdb:
+        condition: service_healthy
+    command: api-server
+    ports:
+      - "${AIRFLOW_API_PORT}:8080"
+    restart: always
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/api/v2/monitor/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      airflow_pgdb:
+        condition: service_healthy
+    command: dag-processor
+    restart: always
+    healthcheck:
+      test: [ "CMD-SHELL", "airflow jobs check --job-type DagProcessorJob --hostname $(hostname)" ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+
+volumes:
+  pgdata_airflow:
+  airflow_init_flag:

@@ -1,0 +1,11 @@
+fastapi===0.129.0
+uvicorn[standard]==0.40.0
+confluent_kafka==2.13.0
+minio==7.2.20
+pandas==3.0.0
+faker==40.1.2
+pyarrow==23.0.0
+SQLAlchemy==2.0.46
+psycopg2-binary==2.9.11
+pytest==9.0.2
+jinja2==3.1.6

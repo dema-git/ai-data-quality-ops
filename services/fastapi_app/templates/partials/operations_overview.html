@@ -1,0 +1,76 @@
+<div class="row g-3">
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body py-3">
+                <h2 class="h5 mb-3">Outbox status</h2>
+
+                <div class="row row-cols-2 g-2 small">
+                    <div class="col">
+                        <div class="text-muted">Pending</div>
+                        <div class="fs-5 fw-semibold">{{ outbox.PENDING }}</div>
+                    </div>
+                    <div class="col">
+                        <div class="text-muted">Done</div>
+                        <div class="fs-5 fw-semibold">{{ outbox.DONE }}</div>
+                    </div>
+                    <div class="col">
+                        <div class="text-muted">Failed</div>
+                        <div class="fs-5 fw-semibold">{{ outbox.FAILED }}</div>
+                    </div>
+                </div>
+
+                <div class="border-top mt-3 pt-2 small text-muted">
+                    Total tasks: {{ outbox.TOTAL }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-sm h-100">
+            <div class="card-body py-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="h5 mb-0">Latest ETL runs</h2>
+                    <span class="text-muted small">Last 5 /etl/run-full executions</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0 small">
+                        <thead>
+                        <tr>
+                            <th scope="col">ID</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Bronze</th>
+                            <th scope="col">Silver</th>
+                            <th scope="col">Gold</th>
+                            <th scope="col">Loaded</th>
+                            <th scope="col">Started</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for run in latest_runs %}
+                            <tr>
+                                <td class="text-muted">#{{ run.id }}</td>
+                                <td>
+                                    <span class="badge text-bg-light border">{{ run.status }}</span>
+                                </td>
+                                <td>{{ run.bronze_count }}</td>
+                                <td>{{ run.silver_count }}</td>
+                                <td>{{ run.gold_page_views_count + run.gold_product_events_count }}</td>
+                                <td>{{ run.loaded_page_views_count + run.loaded_product_events_count }}</td>
+                                <td class="text-muted">{{ run.started_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="text-muted py-3">
+                                    No ETL runs recorded yet.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

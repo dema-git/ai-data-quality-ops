@@ -1,0 +1,31 @@
+services:
+  api_app:
+    build:
+      context: .
+      dockerfile: services/fastapi_app/Dockerfile
+    container_name: api_app
+    ports:
+      - "${API_APP_PORT}:8000"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+      MINIO_ENDPOINT: "minio:9010"
+      OPERATIONAL_API_TOKEN: ${OPERATIONAL_API_TOKEN:-medallion-ops-token}
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./shared_logs:/shared/logs
+    depends_on:
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/docs', timeout=3)\" || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network

@@ -1,0 +1,79 @@
+<!-- Bronze -->
+<div class="col">
+    <div class="card shadow-sm h-100 card-bronze">
+        <div class="card-body py-3">
+            <div class="text-uppercase fw-semibold mb-2 bronze fs-4">
+                Bronze
+            </div>
+
+            <div class="mb-1">
+                <div class="text-muted fs-6">Rows</div>
+                <div class="fs-5 fw-semibold">{{ m.bronze_rows }}</div>
+            </div>
+
+            <div class="text-muted fs-6">
+                Files: {{ m.bronze_files }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Silver -->
+<div class="col">
+    <div class="card shadow-sm h-100 card-silver">
+        <div class="card-body py-3">
+            <div class="text-uppercase fw-semibold mb-2 silver fs-4">
+                Silver
+            </div>
+
+            <div class="mb-1">
+                <div class="text-muted fs-6">Rows</div>
+                <div class="fs-5 fw-semibold">{{ m.silver_rows }}</div>
+            </div>
+
+            <div class="text-muted fs-6">
+                Files: {{ m.silver_files }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gold -->
+<div class="col">
+    <div class="card shadow-sm h-100 card-gold">
+        <div class="card-body py-3">
+            <div class="text-uppercase fw-semibold mb-2 gold fs-4">
+                Gold
+            </div>
+
+            <div class="mb-1">
+                <div class="text-muted fs-6">Total rows</div>
+                <div class="fs-5 fw-semibold">{{ m.gold_rows }}</div>
+            </div>
+
+            <div class="text-muted mb-1 fs-6">
+                Files: {{ m.gold_files }}
+            </div>
+
+            <div class="text-muted text-end fs-6">
+                <div>Page views: {{ m.gold_page_view_rows }}</div>
+                <div>Product events: {{ m.gold_product_event_rows }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<style>
+    .bronze { color: #cd7f32; }
+    .silver { color: #c0c0c0; }
+    .gold   { color: #ffd700; }
+
+    .card-bronze { background: rgba(205, 127, 50, 0.08); }
+    .card-silver { background: rgba(192, 192, 192, 0.10); }
+    .card-gold   { background: rgba(255, 215, 0,   0.10); }
+
+    .card-bronze, .card-silver, .card-gold {
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+</style>

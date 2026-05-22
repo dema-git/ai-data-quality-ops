@@ -1,0 +1,144 @@
+services:
+  #################################################
+  # Postgres + pgAdmin
+  #################################################
+  db:
+    image: postgres:16.11
+    restart: always
+    ports:
+      - "${POSTGRES_PORTS}"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: main
+    volumes:
+      - ./pgdata:/var/lib/postgresql
+      - ./scripts/init:/docker-entrypoint-initdb.d
+      - ./shared_logs:/shared/logs
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d main" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app_network
+
+  pgadmin:
+    image: dpage/pgadmin4:9.12
+    container_name: pgadmin_panel
+    restart: always
+    ports:
+      - "${PGADMIN_PORTS}"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./scripts:/scripts
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  #################################################
+  # Kafka + Kafdrop + init-topics
+  #################################################
+  kafka:
+    image: bashj79/kafka-kraft:latest
+    container_name: kafka
+    restart: always
+    ports:
+      - "${KAFKA_PORT}:${KAFKA_PORT}"
+    environment:
+      KAFKA_KRAFT_MODE: "true"
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:${KAFKA_INTERNAL_PORT},CONTROLLER://0.0.0.0:${KAFKA_CONTROLLER_PORT}"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://${KAFKA_ADVERTISED_HOST}:${KAFKA_INTERNAL_PORT}"
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_BROKER_ID: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "${KAFKA_AUTO_CREATE_TOPICS_ENABLE}"
+      KAFKA_MESSAGE_MAX_BYTES: 200000000
+      KAFKA_REPLICA_FETCH_MAX_BYTES: 200000000
+      KAFKA_DATA_DIR: /bitnami/kafka/data
+    volumes:
+      - kafka_data:/bitnami/kafka/data
+    healthcheck:
+      test: [
+        "CMD-SHELL",
+        "cd /opt/kafka/bin && sh kafka-topics.sh --bootstrap-server localhost:${KAFKA_INTERNAL_PORT} --list >/dev/null 2>&1 || exit 1"
+      ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app_network
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop:4.2.0
+    container_name: kafdrop
+    restart: always
+    ports:
+      - "${KAFDROP_PORT}:9000"
+    environment:
+      KAFKA_BROKERCONNECT: "kafka:9092"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  init-topics:
+    build:
+      context: .
+      dockerfile: ./services/init-topic/Dockerfile
+    depends_on:
+      - kafka
+    restart: "no"
+    networks:
+      - app_network
+
+  #################################################
+  # MinIO + MinIO init
+  #################################################
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    ports:
+      - "${MINIO_API_PORT_EXTERNAL}:9010"
+      - "${MINIO_CONSOLE_PORT_EXTERNAL}:9011"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+    command: server /data --address ":9010" --console-address ":9011"
+    volumes:
+      - ./minio-data:/data
+      - ./shared_logs:/shared/logs
+    restart: always
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9010/minio/health/live" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app_network
+
+  minio-init:
+    build:
+      context: .
+      dockerfile: ./services/minio-init/Dockerfile
+    environment:
+      MINIO_USER: ${MINIO_USER}
+      MINIO_PASSWORD: ${MINIO_PASSWORD}
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - app_network
+    restart: "no"
+
+volumes:
+  pgadmin-data:
+  kafka_data:
+
+networks:
+  app_network:
+    name: dataflow_network
