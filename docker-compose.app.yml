@@ -14,6 +14,7 @@ services:
       OPERATIONAL_API_TOKEN: ${OPERATIONAL_API_TOKEN:-medallion-ops-token}
       GENERATOR_INTERVAL_SECONDS: ${GENERATOR_INTERVAL_SECONDS:-60}
       GENERATOR_SESSIONS_PER_BATCH: ${GENERATOR_SESSIONS_PER_BATCH:-2}
+      GENERATOR_BAD_DATA_RATE: ${GENERATOR_BAD_DATA_RATE:-0.0}
     restart: always
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

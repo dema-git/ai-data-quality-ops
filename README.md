@@ -152,9 +152,12 @@ The generator rate is configurable through environment variables:
 ```env
 GENERATOR_INTERVAL_SECONDS=60
 GENERATOR_SESSIONS_PER_BATCH=2
+GENERATOR_BAD_DATA_RATE=0.0
 ```
 
 These defaults keep local data volume modest while developing the data-quality and AI incident flows.
+
+`GENERATOR_BAD_DATA_RATE` controls how often generated events are intentionally corrupted. The default `0.0` keeps the baseline pipeline clean. Higher values can be used later to test quality checks and incident summaries.
 
 ## Protected Operational Endpoints
 

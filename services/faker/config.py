@@ -28,6 +28,28 @@ def _read_int_env(name: str, default: int, *, min_value: int = 1) -> int:
     return value
 
 
+def _read_float_env(
+    name: str,
+    default: float,
+    *,
+    min_value: float = 0.0,
+    max_value: float = 1.0,
+) -> float:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+
+    try:
+        value = float(raw_value)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a float") from exc
+
+    if not min_value <= value <= max_value:
+        raise ValueError(f"{name} must be between {min_value} and {max_value}")
+
+    return value
+
+
 @dataclass(frozen=True)
 class FakerConfig:
     """
@@ -43,6 +65,9 @@ class FakerConfig:
     )
     sessions_per_batch: int = field(
         default_factory=lambda: _read_int_env("GENERATOR_SESSIONS_PER_BATCH", 2)
+    )
+    bad_data_rate: float = field(
+        default_factory=lambda: _read_float_env("GENERATOR_BAD_DATA_RATE", 0.0)
     )
 
     min_events: int = 3

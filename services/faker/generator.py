@@ -37,7 +37,7 @@ from .config import FakerConfig
 from .helpers import generate_session_ids, decide_conversion, generate_base_time, \
     generate_event_count, choose_product_for_session, generate_session_context,\
     choose_event_type, advance_event_time, update_page_url_for_event, \
-    build_extra_payload, build_raw_event
+    build_extra_payload, build_raw_event, inject_bad_data
 
 
 
@@ -114,6 +114,9 @@ class SessionEventFaker:
                 price=price,
                 extra=extra,
             )
+
+            if random.random() < self.config.bad_data_rate:
+                raw_event = inject_bad_data(raw_event)
 
             events.append(raw_event)
 

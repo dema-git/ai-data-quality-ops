@@ -24,6 +24,7 @@
 #       - random_page_url(): generates realistic shopping URLs
 #       - build_extra_payload(): constructs A/B testing and scroll metadata
 #       - build_raw_event(): final assembly of a Bronze-layer raw event
+#       - inject_bad_data(): controlled data-quality issue injection
 
 ###############################################################
 
@@ -34,6 +35,16 @@ from typing import Optional, Dict, Tuple, List
 
 from faker import Faker
 from .config import FakerConfig
+
+
+BAD_DATA_ISSUES = (
+    "missing_session_id",
+    "invalid_event_time",
+    "negative_price",
+    "unknown_event_type",
+    "purchase_without_product",
+    "invalid_extra_payload",
+)
 
 
 ##########################
@@ -255,3 +266,38 @@ def build_raw_event(
         "price": price if event_type in ("add_to_cart", "purchase") else None,
         "extra": extra,
     }
+
+
+def inject_bad_data(event: Dict, issue_type: Optional[str] = None) -> Dict:
+    """
+    Return a copy of the event with one controlled data-quality issue.
+    """
+    issue = issue_type or random.choice(BAD_DATA_ISSUES)
+    if issue not in BAD_DATA_ISSUES:
+        raise ValueError(f"Unsupported bad data issue: {issue}")
+
+    bad_event = dict(event)
+    extra = dict(event.get("extra") or {})
+    extra["injected_quality_issue"] = issue
+    bad_event["extra"] = extra
+
+    if issue == "missing_session_id":
+        bad_event["session_id"] = ""
+    elif issue == "invalid_event_time":
+        bad_event["event_time"] = "not-a-valid-timestamp"
+    elif issue == "negative_price":
+        bad_event["event_type"] = "purchase"
+        bad_event["product_id"] = bad_event.get("product_id") or str(uuid4())
+        bad_event["price"] = -abs(float(bad_event.get("price") or 9.99))
+        bad_event["extra"]["basket_value"] = bad_event["price"]
+    elif issue == "unknown_event_type":
+        bad_event["event_type"] = "unknown_event"
+    elif issue == "purchase_without_product":
+        bad_event["event_type"] = "purchase"
+        bad_event["product_id"] = None
+        bad_event["price"] = bad_event.get("price") or 99.99
+    elif issue == "invalid_extra_payload":
+        bad_event["extra"]["ab_group"] = "Z"
+        bad_event["extra"]["scroll_depth"] = -25
+
+    return bad_event
