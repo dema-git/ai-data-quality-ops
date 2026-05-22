@@ -5,13 +5,20 @@
 # Handles data conversion between Bronze -> Silver -> Gold layers:
 #############################################################
 
-from typing import Optional
+import json
+from dataclasses import asdict
+from typing import Optional, List
 from urllib.parse import urlparse
-from datetime import datetime
+from datetime import datetime, timezone
 
 from services.medallion_models.gold_models import GoldPageView, GoldProductEvent
+from services.medallion_models.quality_model import QualityIssue
 from services.medallion_models.silver_model import SilverWebEvent
 from services.medallion_models.bronze_model import BronzeWebEvent
+
+
+VALID_EVENT_TYPES = {"page_view", "add_to_cart", "purchase"}
+VALID_AB_GROUPS = {"A", "B"}
 
 ###################
 # BRONZE -> SILVER
@@ -58,6 +65,107 @@ def bronze_to_silver(event: BronzeWebEvent) -> SilverWebEvent:
         scroll_depth=scroll_depth,
         ip_address=event.ip_address,
         user_agent=event.user_agent,
+    )
+
+
+def validate_bronze_event(
+    event: BronzeWebEvent,
+    source_object_name: str = "",
+) -> List[QualityIssue]:
+    """
+    Validate a Bronze event before it is promoted to Silver.
+
+    The function returns all detected issues instead of raising. This lets the
+    ETL pipeline quarantine bad records while continuing to process valid ones.
+    """
+    issues: List[QualityIssue] = []
+
+    def add_issue(issue_type: str, issue_field: str, severity: str = "error") -> None:
+        issues.append(
+            build_quality_issue(
+                event=event,
+                issue_type=issue_type,
+                issue_field=issue_field,
+                severity=severity,
+                source_object_name=source_object_name,
+            )
+        )
+
+    try:
+        datetime.fromisoformat(event.event_time)
+    except (TypeError, ValueError):
+        add_issue("invalid_event_time", "event_time")
+
+    if _is_missing(event.session_id):
+        add_issue("missing_session_id", "session_id")
+
+    if _is_missing(event.user_id):
+        add_issue("missing_user_id", "user_id")
+
+    if event.event_type not in VALID_EVENT_TYPES:
+        add_issue("unknown_event_type", "event_type")
+
+    try:
+        invalid_price = event.price is not None and float(event.price) < 0
+    except (TypeError, ValueError):
+        invalid_price = True
+
+    if invalid_price:
+        add_issue("negative_price", "price")
+
+    if event.event_type == "purchase" and _is_missing(event.product_id):
+        add_issue("purchase_without_product", "product_id")
+
+    extra = event.extra if isinstance(event.extra, dict) else {}
+
+    if event.extra is not None and not isinstance(event.extra, dict):
+        add_issue("invalid_extra_payload", "extra")
+
+    scroll_depth = extra.get("scroll_depth")
+    try:
+        invalid_scroll_depth = scroll_depth is not None and not 0 <= int(scroll_depth) <= 100
+    except (TypeError, ValueError):
+        invalid_scroll_depth = True
+
+    if invalid_scroll_depth:
+        add_issue("invalid_scroll_depth", "extra.scroll_depth")
+
+    ab_group = extra.get("ab_group")
+    if ab_group is not None and ab_group not in VALID_AB_GROUPS:
+        add_issue("invalid_ab_group", "extra.ab_group")
+
+    return issues
+
+
+def build_quality_issue(
+    *,
+    event: BronzeWebEvent,
+    issue_type: str,
+    issue_field: str,
+    severity: str,
+    source_object_name: str = "",
+) -> QualityIssue:
+    """
+    Build a serializable quality record for one validation failure.
+    """
+    raw_event = asdict(event)
+    extra = event.extra if isinstance(event.extra, dict) else {}
+    injected_quality_issue = extra.get("injected_quality_issue", "")
+
+    return QualityIssue(
+        detected_at=datetime.now(timezone.utc).isoformat(),
+        source_layer="bronze",
+        source_bucket="events-bronze",
+        source_object_name=source_object_name,
+        issue_type=issue_type,
+        issue_field=issue_field,
+        severity=severity,
+        event_time=str(event.event_time),
+        session_id=str(event.session_id),
+        user_id=str(event.user_id),
+        event_type=str(event.event_type),
+        injected_quality_issue=str(injected_quality_issue),
+        raw_event_json=json.dumps(raw_event, default=str, sort_keys=True),
     )
 
 ###################

@@ -21,9 +21,10 @@ from services.medallion_pipeline.outbox import (
 from services.medallion_pipeline.pipeline_state import update_processing_state
 from services.medallion_models.bronze_model import BronzeWebEvent
 from services.medallion_models.gold_models import GoldProductEvent, GoldPageView
+from services.medallion_models.quality_model import QualityIssue
 from services.medallion_models.silver_model import SilverWebEvent
 from services.medallion_models.helpers import (bronze_to_silver, silver_to_gold_page_view,
-                                               silver_to_gold_product)
+                                               silver_to_gold_product, validate_bronze_event)
 from exceptions_logging.logger import AppLogger
 
 
@@ -33,6 +34,7 @@ BRONZE_BUCKET = "events-bronze"
 BRONZE_ARCHIVE_BUCKET = "events-bronze-archive"
 SILVER_BUCKET = "events-silver"
 SILVER_ARCHIVE_BUCKET = "events-silver-archive"
+QUALITY_ISSUES_BUCKET = "events-quality-issues"
 
 GOLD_PAGE_VIEWS_BUCKET = "events-gold-page-views"
 GOLD_PAGE_VIEWS_ARCHIVE_BUCKET = "events-gold-page-views-archive"
@@ -89,11 +91,14 @@ def run_bronze_to_silver() -> Dict[str, int]:
             skipped_files=skipped_files,
         )
 
-        bronze_events: List[BronzeWebEvent] = []
+        bronze_events: List[Dict] = []
         for f in bronze_files_to_process:
             for row in f["data"]:
                 # Each row is a flat Bronze event dict → map it to dataclass.
-                bronze_events.append(BronzeWebEvent(**row))
+                bronze_events.append({
+                    "event": BronzeWebEvent(**row),
+                    "source_object_name": f.get("object_name") or "",
+                })
 
         if not bronze_events:
             # Nothing to process
@@ -107,42 +112,60 @@ def run_bronze_to_silver() -> Dict[str, int]:
                 "skipped_files": skipped_files,
             }
 
-        # Transform Bronze → Silver via helper func.
+        # Validate Bronze records before they are promoted to Silver.
         silver_events: List[SilverWebEvent] = []
-        for bronze in bronze_events:
+        quality_issues: List[QualityIssue] = []
+        for bronze_record in bronze_events:
+            bronze = bronze_record["event"]
+            issues = validate_bronze_event(
+                bronze,
+                source_object_name=bronze_record["source_object_name"],
+            )
+            if issues:
+                quality_issues.extend(issues)
+                continue
+
             silver = bronze_to_silver(bronze)
             silver_events.append(silver)
 
         log.info(
-            "bronze_to_silver transformed",
+            "bronze_to_silver validated",
             bronze_count=len(bronze_events),
             silver_count=len(silver_events),
+            quality_issues_count=len(quality_issues),
         )
 
         # Convert Silver dataclasses to plain dicts for upload
         silver_records: List[Dict] = [asdict(e) for e in silver_events]
+        quality_issue_records: List[Dict] = [asdict(e) for e in quality_issues]
 
         # upload_batch expects List[List[Dict]] → wrap into one batch.
-        upload_batch(batch=[silver_records], bucket_name=SILVER_BUCKET)
+        if silver_records:
+            upload_batch(batch=[silver_records], bucket_name=SILVER_BUCKET)
+        if quality_issue_records:
+            upload_batch(batch=[quality_issue_records], bucket_name=QUALITY_ISSUES_BUCKET)
+
         log.info(
-            "silver parquet uploaded",
+            "bronze_to_silver parquet uploaded",
             silver_count=len(silver_records),
+            quality_issues_count=len(quality_issue_records),
         )
 
     except Exception as e:
         log.exception(f"bronze_to_silver failed{e.args}")
-        return {"bronze_count": 0, "silver_count": 0}
+        return {"bronze_count": 0, "silver_count": 0, "quality_issues_count": 0}
 
     # Move processed Bronze files to an archive bucket.
     # This prevents re-processing the same data in the next run
     # move_files_to_another_bucket(BRONZE_BUCKET, BRONZE_ARCHIVE_BUCKET)
     try:
-        max_ts = max(e.event_time for e in silver_events)
-        update_processing_state(
-            dataset="web_events",
-            layer="bronze_to_silver",
-            last_processed_ts=max_ts,
-        )
+        if silver_events:
+            max_ts = max(e.event_time for e in silver_events)
+            update_processing_state(
+                dataset="web_events",
+                layer="bronze_to_silver",
+                last_processed_ts=max_ts,
+            )
 
         for f in bronze_files_to_process:
             bronze_object_name = f.get("object_name")
@@ -163,6 +186,7 @@ def run_bronze_to_silver() -> Dict[str, int]:
     return {
         "bronze_count": len(bronze_events),
         "silver_count": len(silver_events),
+        "quality_issues_count": len(quality_issues),
         "skipped_files": skipped_files,
     }
 
@@ -333,6 +357,11 @@ def get_medallion_stats() -> Dict[str, int]:
     gold_total_rows = gold_pv_rows_count + gold_pe_rows_count
     gold_total_files = gold_pv_files_count + gold_pe_files_count
 
+    # Quality issues
+    quality_issue_files = get_files_data(QUALITY_ISSUES_BUCKET)
+    quality_issue_files_count = len(quality_issue_files)
+    quality_issue_rows_count = sum(len(f["data"]) for f in quality_issue_files)
+
     return {
         "bronze_files": bronze_files_count,
         "bronze_rows": bronze_rows_count,
@@ -344,4 +373,6 @@ def get_medallion_stats() -> Dict[str, int]:
         "gold_page_view_rows": gold_pv_rows_count,
         "gold_product_event_files": gold_pe_files_count,
         "gold_product_event_rows": gold_pe_rows_count,
+        "quality_issue_files": quality_issue_files_count,
+        "quality_issue_rows": quality_issue_rows_count,
     }
