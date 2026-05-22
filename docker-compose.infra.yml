@@ -25,7 +25,6 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4:9.12
-    container_name: pgadmin_panel
     restart: always
     ports:
       - "${PGADMIN_PORTS}"
@@ -46,7 +45,6 @@ services:
   #################################################
   kafka:
     image: bashj79/kafka-kraft:latest
-    container_name: kafka
     restart: always
     ports:
       - "${KAFKA_PORT}:${KAFKA_PORT}"
@@ -75,7 +73,6 @@ services:
 
   kafdrop:
     image: obsidiandynamics/kafdrop:4.2.0
-    container_name: kafdrop
     restart: always
     ports:
       - "${KAFDROP_PORT}:9000"
@@ -141,4 +138,3 @@ volumes:
 
 networks:
   app_network:
-    name: dataflow_network
