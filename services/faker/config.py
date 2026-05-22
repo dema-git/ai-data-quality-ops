@@ -7,8 +7,25 @@
 # customizable parameters used by the session event generation system.
 ############################################################
 
-from dataclasses import dataclass
+import os
+from dataclasses import dataclass, field
 from typing import Optional, Sequence
+
+
+def _read_int_env(name: str, default: int, *, min_value: int = 1) -> int:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+
+    try:
+        value = int(raw_value)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer") from exc
+
+    if value < min_value:
+        raise ValueError(f"{name} must be >= {min_value}")
+
+    return value
 
 
 @dataclass(frozen=True)
@@ -20,6 +37,13 @@ class FakerConfig:
     """
     base_url: str = "https://shop.example.com"
     seed: Optional[int] = None
+
+    interval_seconds: int = field(
+        default_factory=lambda: _read_int_env("GENERATOR_INTERVAL_SECONDS", 60)
+    )
+    sessions_per_batch: int = field(
+        default_factory=lambda: _read_int_env("GENERATOR_SESSIONS_PER_BATCH", 2)
+    )
 
     min_events: int = 3
     max_events: int = 10

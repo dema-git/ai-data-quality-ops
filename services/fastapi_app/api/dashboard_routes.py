@@ -53,8 +53,8 @@ async def dashboard_metrics(request: Request):
     - Generator config: batch size & interval
     - Bronze/Silver/Gold: rows & files from corresponding buckets
     """
-    events_per_batch = getattr(faker_config, "sessions_per_batch", 5)
-    generator_interval_sec = getattr(faker_config, "interval_seconds", 10)
+    events_per_batch = getattr(faker_config, "sessions_per_batch", 2)
+    generator_interval_sec = getattr(faker_config, "interval_seconds", 60)
 
     layer_stats = get_medallion_stats()
 

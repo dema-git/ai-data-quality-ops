@@ -63,6 +63,26 @@
     </div>
 </div>
 
+<!-- Generator -->
+<div class="col">
+    <div class="card shadow-sm h-100">
+        <div class="card-body py-3">
+            <div class="text-uppercase fw-semibold mb-2 fs-4">
+                Generator
+            </div>
+
+            <div class="mb-1">
+                <div class="text-muted fs-6">Sessions per batch</div>
+                <div class="fs-5 fw-semibold">{{ m.events_per_batch }}</div>
+            </div>
+
+            <div class="text-muted fs-6">
+                Interval: {{ m.generator_interval_sec }}s
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <style>
     .bronze { color: #cd7f32; }

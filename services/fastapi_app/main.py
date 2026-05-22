@@ -60,8 +60,10 @@ kafka_ctx = KafkaProducerContext()
 _background_task: asyncio.Task | None = None
 
 
-async def background_loop(interval_seconds: int = 10,
-                            sessions_per_batch: int = 5,) -> None:
+async def background_loop(
+    interval_seconds: int | None = None,
+    sessions_per_batch: int | None = None,
+) -> None:
     """
     Background task that runs continuously while the app is running.
 
@@ -71,6 +73,9 @@ async def background_loop(interval_seconds: int = 10,
 
     This creates a constant stream of test data for development and testing.
     """
+    interval_seconds = interval_seconds or faker_config.interval_seconds
+    sessions_per_batch = sessions_per_batch or faker_config.sessions_per_batch
+
     logger.info(
         "Background loop started (interval=%s, sessions_per_batch=%s)",
         interval_seconds,

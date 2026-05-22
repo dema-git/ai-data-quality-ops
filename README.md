@@ -143,6 +143,19 @@ The API is split into:
 - operational ETL/archive/cleanup endpoints
 - dashboard partial endpoints
 
+## Synthetic Data Generator
+
+The application starts a background generator that creates synthetic user session events and sends them to Kafka.
+
+The generator rate is configurable through environment variables:
+
+```env
+GENERATOR_INTERVAL_SECONDS=60
+GENERATOR_SESSIONS_PER_BATCH=2
+```
+
+These defaults keep local data volume modest while developing the data-quality and AI incident flows.
+
 ## Protected Operational Endpoints
 
 Endpoints that can change pipeline state or delete files require a simple API token.
