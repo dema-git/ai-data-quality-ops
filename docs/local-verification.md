@@ -68,7 +68,8 @@ and sends it as `X-API-Token`.
 Check the token inside the scheduler container:
 
 ```bash
-docker exec data-flow-airflow-scheduler-1 printenv OPERATIONAL_API_TOKEN
+docker compose -f docker-compose.infra.yml -f docker-compose.app.yml -f docker-compose.airflow.yml \
+  exec airflow-scheduler printenv OPERATIONAL_API_TOKEN
 ```
 
 Expected result:
@@ -80,7 +81,8 @@ medallion-ops-token
 Trigger the API through the same shared client used by DAGs:
 
 ```bash
-docker exec data-flow-airflow-scheduler-1 bash -lc \
+docker compose -f docker-compose.infra.yml -f docker-compose.app.yml -f docker-compose.airflow.yml \
+  exec airflow-scheduler bash -lc \
   "PYTHONPATH=/opt/airflow/dags python - <<'PY'
 from _shared.http_client import call_api
 result = call_api('/etl/run-full', timeout_s=1800)
@@ -95,7 +97,8 @@ Expected result: a new ETL `run_id`.
 Check the latest ETL runs in PostgreSQL:
 
 ```bash
-docker exec data-flow-db-1 psql -U admin1 -d main -c \
+docker compose -f docker-compose.infra.yml -f docker-compose.app.yml -f docker-compose.airflow.yml \
+  exec db psql -U admin1 -d main -c \
   "SELECT id, status, started_at FROM pipeline.etl_runs ORDER BY id DESC LIMIT 5;"
 ```
 

@@ -38,14 +38,16 @@ logger = logging.getLogger(__name__)
 
 
 app = FastAPI(
-    title="Medallion ETL Pipeline API",
+    title="AI Data Quality Ops API",
     description=(
-        "API for the end-to-end processing of user session events:\n"
+        "API for a Medallion-based data pipeline and the operational layer around it:\n"
         "- Kafka ingestion into the Bronze layer\n"
         "- Data cleaning and normalization into the Silver layer\n"
         "- Business transformations into the Gold layer\n"
         "- Storage in MinIO and PostgreSQL analytical marts\n"
-        "- Analytics endpoints for sessions, products, and landing pages"
+        "- Analytics endpoints for sessions, products, and landing pages\n"
+        "- Protected operational endpoints for ETL and archive workflows\n"
+        "- Future data quality and AI incident summary endpoints"
     ),
     version="1.0.0",
 )
@@ -133,4 +135,3 @@ app.include_router(integrations_routes.router)
 app.include_router(analytics_routes.router)
 app.include_router(faker_generator_route.router)
 app.include_router(dashboard_routes.router)
-

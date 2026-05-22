@@ -34,8 +34,9 @@
             </p>
             <p class="text-muted mb-0 small">
                 This service continuously generates fake user session events,
-                sends them to Kafka and runs a Medallion ETL pipeline to MinIO
-                and PostgreSQL.
+                sends them to Kafka and runs a Medallion ETL baseline to MinIO
+                and PostgreSQL. The next layer adds data quality checks and
+                AI-assisted incident summaries.
             </p>
         </div>
         <div class="d-flex flex-column align-items-end gap-1 small">
@@ -102,6 +103,7 @@
             <li>A Cleanup DAG removes archived files permanently from MinIO.</li>
             <li>The FastAPI Analytics API exposes aggregated metrics and pipeline information.</li>
             <li>The monitoring UI shows live ETL metrics, file counts, and system status using HTMX.</li>
+            <li>The AI ops layer will use structured quality reports to summarize incidents and suggest next checks.</li>
             <li>All logs are structured JSON and collected by Grafana / Prometheus / Loki for full observability.</li>
         </ol>
         </div>

@@ -30,7 +30,7 @@ jobs:
         run: cp .env.example .env
 
       - name: Validate test compose config
-        run: docker compose -p data-flow-tests -f docker-compose.tests.yml config
+        run: docker compose -p ai-data-quality-ops-tests -f docker-compose.tests.yml config
 
       - name: Run test suite
         run: make test

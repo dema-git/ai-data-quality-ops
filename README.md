@@ -1,10 +1,12 @@
-# Medallion ETL Pipeline
+# AI Data Quality Ops
 
-This project is a local data pipeline demo built around the Medallion pattern: **Bronze -> Silver -> Gold**.
+This project is a local backend/data platform for experimenting with AI-assisted data quality operations.
 
-It generates synthetic user session events, sends them through Kafka, stores raw and processed Parquet files in MinIO, loads Gold-level analytical tables into PostgreSQL, and exposes a small operational UI through FastAPI.
+It uses a Medallion pipeline as the baseline system: synthetic user session events are generated, sent through Kafka, stored as raw and processed Parquet files in MinIO, loaded into PostgreSQL analytical marts, and exposed through FastAPI.
 
-The main goal of the project is to show how I structure a backend/data system when there is more than one moving part: ingestion, object storage, orchestration, metadata, retries, protected operational endpoints, tests, and CI.
+The next layer of the project is data operations: controlled bad data, validation reports, incident detection, and AI-generated incident summaries based on structured pipeline facts.
+
+The goal is to show how I structure a backend/data system that is not only runnable, but also inspectable: ingestion, object storage, orchestration, metadata, retries, protected operational endpoints, quality checks, tests, CI, and operational documentation.
 
 ## Architecture
 
@@ -12,7 +14,7 @@ The main goal of the project is to show how I structure a backend/data system wh
 
 Main services:
 
-- **FastAPI**: API, dashboard, background event generator, Kafka producer/consumer startup.
+- **FastAPI**: API, dashboard, background event generator, Kafka producer/consumer startup, and operational endpoints.
 - **Kafka**: transport for generated session events.
 - **MinIO**: object storage for Bronze, Silver, Gold, and archive buckets.
 - **Airflow**: runs ETL, archive, and cleanup DAGs.
@@ -47,7 +49,7 @@ Main services:
 
 Runtime folders such as `pgdata`, `minio-data`, and `shared_logs` are created locally and are not part of the source code.
 
-## Data Flow
+## Current Data Flow
 
 1. FastAPI starts a background generator.
 2. The generator creates fake user session events.
@@ -116,6 +118,8 @@ It shows:
 - latest 5 ETL runs from `pipeline.etl_runs`
 - outbox task status counts
 - links to Swagger UI and ReDoc
+
+Future AI/data-quality work will add validation status, rejected record counts, incident severity, and AI-generated incident summaries to this operational view.
 
 The dashboard uses HTMX to refresh live metrics without a full page reload.
 
@@ -359,7 +363,7 @@ Dashboard:
 - `GET /dashboard/metrics`
 - `GET /dashboard/operations`
 
-## What I Focused On
+## Current Focus
 
 - separating raw, cleaned, and analytical data layers
 - keeping intermediate data in object storage
@@ -370,6 +374,21 @@ Dashboard:
 - making local setup reproducible with Docker Compose and Make
 - covering important behavior with focused tests
 - running tests in CI
+
+## Planned AI Ops Layer
+
+This repository starts from a working Medallion ETL baseline. The planned AI/data-quality layer will build on top of that baseline instead of replacing it.
+
+Planned additions:
+
+- configurable synthetic data generation rate
+- controlled invalid event injection
+- data quality validation reports
+- incident detection rules for stale data, failed runs, and outbox backlog
+- OpenAI-powered incident summaries based on compact structured reports
+- dashboard section for quality and incident status
+
+The AI layer should explain pipeline state and recommend next actions. It should not mutate data, run cleanup, or trigger recovery actions without an explicit operational endpoint.
 
 ## Limitations
 

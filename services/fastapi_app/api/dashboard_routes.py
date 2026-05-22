@@ -39,8 +39,8 @@ async def homepage(request: Request):
     # Static, high-level metadata for the page header
     context = {
         "request": request,
-        "app_title": "Medallion ETL Dashboard",
-        "app_subtitle": "Kafka → MinIO (Bronze / Silver / Gold) → PostgreSQL",
+        "app_title": "AI Data Quality Ops",
+        "app_subtitle": "Kafka -> MinIO (Bronze / Silver / Gold) -> PostgreSQL -> data quality operations",
     }
     return templates.TemplateResponse("home.html", context)
 

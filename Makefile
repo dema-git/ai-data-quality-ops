@@ -1,5 +1,5 @@
 COMPOSE = docker compose -f docker-compose.infra.yml -f docker-compose.app.yml -f docker-compose.airflow.yml
-TEST_COMPOSE = docker compose -p data-flow-tests -f docker-compose.tests.yml
+TEST_COMPOSE = docker compose -p ai-data-quality-ops-tests -f docker-compose.tests.yml
 
 .DEFAULT_GOAL := help
 
