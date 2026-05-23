@@ -105,3 +105,22 @@ def test_quality_summary_handles_empty_bucket(monkeypatch):
         "by_severity": {},
         "recent_issues": [],
     }
+
+
+def test_top_issue_types_returns_most_frequent_issues_in_stable_order():
+    summary = {
+        "by_issue_type": {
+            "missing_session_id": 2,
+            "negative_price": 5,
+            "invalid_event_time": 5,
+            "unknown_event_type": 1,
+        }
+    }
+
+    top_issues = quality_service.get_top_issue_types(summary, limit=3)
+
+    assert top_issues == [
+        {"issue_type": "invalid_event_time", "count": 5},
+        {"issue_type": "negative_price", "count": 5},
+        {"issue_type": "missing_session_id", "count": 2},
+    ]

@@ -16,6 +16,10 @@ from fastapi.responses import HTMLResponse
 from pathlib import Path
 from fastapi import Depends
 from services.medallion_pipeline.medallion_service import get_medallion_stats
+from services.medallion_pipeline.quality_service import (
+    get_quality_issues_summary,
+    get_top_issue_types,
+)
 from fastapi.templating import Jinja2Templates
 from db_utils.database import get_db_session
 from services.faker.config import FakerConfig
@@ -56,11 +60,15 @@ async def dashboard_metrics(request: Request):
     events_per_batch = getattr(faker_config, "sessions_per_batch", 2)
     generator_interval_sec = getattr(faker_config, "interval_seconds", 60)
 
-    layer_stats = get_medallion_stats()
+    layer_stats = get_medallion_stats(include_quality=False)
+    quality_summary = get_quality_issues_summary(recent_limit=1)
 
     metrics = {
         "events_per_batch": events_per_batch,
         "generator_interval_sec": generator_interval_sec,
+        "quality_issue_files": quality_summary["quality_report_files"],
+        "quality_issue_rows": quality_summary["total_issues"],
+        "quality_top_issues": get_top_issue_types(quality_summary),
         **layer_stats,
     }
 

@@ -323,7 +323,7 @@ def run_silver_to_gold() -> Dict[str, int]:
     }
 
 
-def get_medallion_stats() -> Dict[str, int]:
+def get_medallion_stats(include_quality: bool = True) -> Dict[str, int]:
     """
     Helper to collect basic Medallion metrics from MinIO.
 
@@ -357,12 +357,7 @@ def get_medallion_stats() -> Dict[str, int]:
     gold_total_rows = gold_pv_rows_count + gold_pe_rows_count
     gold_total_files = gold_pv_files_count + gold_pe_files_count
 
-    # Quality issues
-    quality_issue_files = get_files_data(QUALITY_ISSUES_BUCKET)
-    quality_issue_files_count = len(quality_issue_files)
-    quality_issue_rows_count = sum(len(f["data"]) for f in quality_issue_files)
-
-    return {
+    stats = {
         "bronze_files": bronze_files_count,
         "bronze_rows": bronze_rows_count,
         "silver_files": silver_files_count,
@@ -373,6 +368,13 @@ def get_medallion_stats() -> Dict[str, int]:
         "gold_page_view_rows": gold_pv_rows_count,
         "gold_product_event_files": gold_pe_files_count,
         "gold_product_event_rows": gold_pe_rows_count,
-        "quality_issue_files": quality_issue_files_count,
-        "quality_issue_rows": quality_issue_rows_count,
     }
+
+    if include_quality:
+        quality_issue_files = get_files_data(QUALITY_ISSUES_BUCKET)
+        stats["quality_issue_files"] = len(quality_issue_files)
+        stats["quality_issue_rows"] = sum(
+            len(f["data"]) for f in quality_issue_files
+        )
+
+    return stats

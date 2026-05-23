@@ -186,3 +186,19 @@ def test_bronze_to_silver_quarantines_invalid_events(monkeypatch):
     assert len(uploaded[medallion_service.QUALITY_ISSUES_BUCKET]) == 1
     assert uploaded[medallion_service.QUALITY_ISSUES_BUCKET][0]["issue_type"] == "invalid_event_time"
     assert archive_tasks[0]["partition_key"] == "2026/05/22/events.parquet"
+
+
+def test_medallion_stats_can_skip_quality_bucket_scan(monkeypatch):
+    requested_buckets = []
+
+    def fake_get_files_data(bucket_name):
+        requested_buckets.append(bucket_name)
+        return []
+
+    monkeypatch.setattr(medallion_service, "get_files_data", fake_get_files_data)
+
+    stats = medallion_service.get_medallion_stats(include_quality=False)
+
+    assert medallion_service.QUALITY_ISSUES_BUCKET not in requested_buckets
+    assert "quality_issue_files" not in stats
+    assert "quality_issue_rows" not in stats

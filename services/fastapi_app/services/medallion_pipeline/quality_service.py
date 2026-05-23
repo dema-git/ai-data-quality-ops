@@ -17,6 +17,24 @@ log = AppLogger(component="quality_service")
 QUALITY_ISSUES_BUCKET = "events-quality-issues"
 
 
+def get_top_issue_types(
+    summary: Dict[str, Any],
+    limit: int = 4,
+) -> List[Dict[str, Any]]:
+    """
+    Return the most frequent issue types for operational displays.
+    """
+    issue_counts = summary.get("by_issue_type", {})
+    sorted_issues = sorted(
+        issue_counts.items(),
+        key=lambda item: (-item[1], item[0]),
+    )
+    return [
+        {"issue_type": issue_type, "count": count}
+        for issue_type, count in sorted_issues[:limit]
+    ]
+
+
 def get_quality_issues_summary(recent_limit: int = 5) -> Dict[str, Any]:
     """
     Aggregate quality issues written by the Bronze validation gate.

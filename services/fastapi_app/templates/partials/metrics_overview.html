@@ -99,6 +99,20 @@
             <div class="text-muted fs-6">
                 Files: {{ m.quality_issue_files }}
             </div>
+
+            {% if m.quality_top_issues %}
+                <div class="border-top mt-3 pt-2">
+                    <div class="text-muted fs-6 mb-1">Top issues</div>
+                    {% for issue in m.quality_top_issues %}
+                        <div class="d-flex justify-content-between gap-2 fs-6">
+                            <span class="text-truncate" title="{{ issue.issue_type }}">
+                                {{ issue.issue_type }}
+                            </span>
+                            <span class="fw-semibold">{{ issue.count }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
         </div>
     </div>
 </div>
