@@ -123,7 +123,9 @@ It shows:
 - outbox task status counts
 - links to Swagger UI and ReDoc
 
-Future AI/data-quality work will add validation status, rejected record counts, incident severity, and AI-generated incident summaries to this operational view.
+The dashboard exposes quality counts and top rejected issue types. AI-assisted
+incident explanations are triggered explicitly through the protected API rather
+than during dashboard refreshes.
 
 The dashboard uses HTMX to refresh live metrics without a full page reload.
 
@@ -144,6 +146,7 @@ The API is split into:
 
 - analytics endpoints
 - demo data inspection endpoints
+- quality summary and AI-assisted incident endpoints
 - operational ETL/archive/cleanup endpoints
 - dashboard partial endpoints
 
@@ -201,6 +204,57 @@ header in every DAG. The shared Airflow HTTP client reads
 must provide the header explicitly.
 
 This is not meant to be a full auth system. It is a small guard for local operational endpoints that should not be accidentally triggered from the browser or by unauthenticated clients.
+
+## AI-Assisted Incident Explanation
+
+Quality validation remains deterministic. Invalid Bronze records are
+quarantined first, then summarized into an incident report and routed to one
+of four specialist analysis profiles:
+
+- `schema_payload_agent`
+- `business_rules_agent`
+- `session_integrity_agent`
+- `timestamp_quality_agent`
+
+The protected endpoint is manually triggered so dashboard refreshes do not
+cause repeated model calls:
+
+```http
+POST /quality/incidents/current/explanation
+```
+
+The default mode is local and does not require an external API key:
+
+```env
+AI_INCIDENT_ANALYSIS_MODE=mock
+OPENAI_MODEL=gpt-5.4-mini
+OPENAI_REQUEST_TIMEOUT_SECONDS=30
+```
+
+Try the full route with stored quality issues:
+
+```bash
+curl -X POST \
+  -H "X-API-Token: medallion-ops-token" \
+  "http://localhost:8000/quality/incidents/current/explanation?recent_limit=5"
+```
+
+The response identifies the selected specialist agent and returns an
+operator-facing structured explanation with observed facts, possible causes,
+recommended checks, and confidence.
+
+For real model execution, configure the server-side environment only:
+
+```env
+AI_INCIDENT_ANALYSIS_MODE=openai
+OPENAI_API_KEY=your-api-key
+OPENAI_MODEL=gpt-5.4-mini
+```
+
+In `openai` mode, the service calls the OpenAI Responses API and requests a
+strict JSON-schema response. The model receives a compact incident context
+produced from validation facts, not arbitrary raw pipeline data. The API key
+is never returned through the endpoint or exposed in the dashboard.
 
 ## Local Setup
 
@@ -377,6 +431,11 @@ Operational:
 - `GET /bronze-archive/cleanup`
 - `GET /silver-archive/cleanup`
 
+Quality operations:
+
+- `GET /quality/issues/summary`
+- `POST /quality/incidents/current/explanation`
+
 Dashboard:
 
 - `GET /`
@@ -395,18 +454,25 @@ Dashboard:
 - covering important behavior with focused tests
 - running tests in CI
 
-## Planned AI Ops Layer
+## AI Ops Layer
 
-This repository starts from a working Medallion ETL baseline. The planned AI/data-quality layer will build on top of that baseline instead of replacing it.
+The AI/data-quality layer builds on top of a working Medallion ETL baseline instead of replacing it.
 
-Planned additions:
+Implemented:
 
 - configurable synthetic data generation rate
 - controlled invalid event injection
 - data quality validation reports
-- incident detection rules for stale data, failed runs, and outbox backlog
-- OpenAI-powered incident summaries based on compact structured reports
-- dashboard section for quality and incident status
+- structured quality incident reports
+- specialized agent routing by dominant quality category
+- OpenAI-compatible incident explanations based on compact structured reports
+- dashboard section for quality status
+
+Possible next extensions:
+
+- time-windowed incident severity instead of cumulative quality counts
+- stale pipeline run and outbox backlog incident rules
+- display of the most recently generated explanation in the dashboard
 
 The AI layer should explain pipeline state and recommend next actions. It should not mutate data, run cleanup, or trigger recovery actions without an explicit operational endpoint.
 
