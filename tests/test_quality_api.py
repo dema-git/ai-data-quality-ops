@@ -11,6 +11,9 @@ import importlib
 from pathlib import Path
 import sys
 
+from fastapi import HTTPException
+import pytest
+
 FASTAPI_APP_PATH = Path(__file__).resolve().parents[1] / "services" / "fastapi_app"
 ROOT_SERVICES_PATH = Path(__file__).resolve().parents[1] / "services"
 sys.path.insert(0, str(FASTAPI_APP_PATH))
@@ -52,3 +55,57 @@ def test_quality_router_exposes_summary_path():
     paths = {route.path for route in quality_routes.router.routes}
 
     assert "/quality/issues/summary" in paths
+
+
+def test_incident_explanation_route_calls_service_with_limit(monkeypatch):
+    expected = {"analysis_status": "generated", "provider": "mock"}
+
+    monkeypatch.setattr(
+        quality_routes,
+        "generate_incident_explanation",
+        lambda recent_limit: expected,
+    )
+
+    result = quality_routes.current_incident_explanation(recent_limit=3)
+
+    assert result == expected
+
+
+def test_incident_explanation_route_maps_config_error_to_service_unavailable(
+    monkeypatch,
+):
+    def raise_config_error(recent_limit):
+        raise quality_routes.AIIncidentConfigurationError("missing key")
+
+    monkeypatch.setattr(
+        quality_routes,
+        "generate_incident_explanation",
+        raise_config_error,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        quality_routes.current_incident_explanation(recent_limit=3)
+
+    assert exc_info.value.status_code == 503
+
+
+def test_incident_explanation_route_maps_provider_error_to_bad_gateway(monkeypatch):
+    def raise_provider_error(recent_limit):
+        raise quality_routes.AIIncidentProviderError("provider failed")
+
+    monkeypatch.setattr(
+        quality_routes,
+        "generate_incident_explanation",
+        raise_provider_error,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        quality_routes.current_incident_explanation(recent_limit=3)
+
+    assert exc_info.value.status_code == 502
+
+
+def test_quality_router_exposes_incident_explanation_path():
+    paths = {route.path for route in quality_routes.router.routes}
+
+    assert "/quality/incidents/current/explanation" in paths

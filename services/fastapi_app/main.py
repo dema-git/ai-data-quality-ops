@@ -48,7 +48,7 @@ app = FastAPI(
         "- Analytics endpoints for sessions, products, and landing pages\n"
         "- Protected operational endpoints for ETL and archive workflows\n"
         "- Read-only quality issue summaries for rejected Bronze records\n"
-        "- Future AI incident summary endpoints"
+        "- Token-protected AI-assisted explanations for structured quality incidents"
     ),
     version="1.0.0",
 )
