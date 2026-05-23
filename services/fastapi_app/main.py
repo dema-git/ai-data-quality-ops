@@ -22,7 +22,7 @@ from fastapi.responses import HTMLResponse
 from fastapi import Depends
 from fastapi.templating import Jinja2Templates
 from api import (integrations_routes, analytics_routes, faker_generator_route,
-                 dashboard_routes)
+                 dashboard_routes, quality_routes)
 from services.faker.generator import SessionEventFaker
 from services.faker.config import FakerConfig
 from services.kafka.consumer import start_consumer_loop
@@ -47,7 +47,8 @@ app = FastAPI(
         "- Storage in MinIO and PostgreSQL analytical marts\n"
         "- Analytics endpoints for sessions, products, and landing pages\n"
         "- Protected operational endpoints for ETL and archive workflows\n"
-        "- Future data quality and AI incident summary endpoints"
+        "- Read-only quality issue summaries for rejected Bronze records\n"
+        "- Future AI incident summary endpoints"
     ),
     version="1.0.0",
 )
@@ -140,3 +141,4 @@ app.include_router(integrations_routes.router)
 app.include_router(analytics_routes.router)
 app.include_router(faker_generator_route.router)
 app.include_router(dashboard_routes.router)
+app.include_router(quality_routes.router)
