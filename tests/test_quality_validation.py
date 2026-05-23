@@ -81,6 +81,48 @@ def test_validate_bronze_event_returns_quality_issues():
     assert all(issue.injected_quality_issue == "invalid_extra_payload" for issue in issues)
 
 
+def test_check_price_reports_only_price_issue():
+    event = make_bronze_event(
+        event_time="bad-time",
+        session_id="",
+        price=-10.0,
+    )
+
+    issues = medallion_helpers.check_price(
+        event,
+        source_object_name="bronze/prices.parquet",
+    )
+
+    assert [issue.issue_type for issue in issues] == ["negative_price"]
+    assert issues[0].issue_field == "price"
+    assert issues[0].source_object_name == "bronze/prices.parquet"
+
+
+def test_validate_bronze_event_executes_registered_checks(monkeypatch):
+    event = make_bronze_event()
+    executed_checks = []
+
+    def first_check(event, source_object_name):
+        executed_checks.append(("first", source_object_name))
+        return []
+
+    def second_check(event, source_object_name):
+        executed_checks.append(("second", source_object_name))
+        return []
+
+    monkeypatch.setattr(
+        medallion_helpers,
+        "QUALITY_CHECKS",
+        [first_check, second_check],
+    )
+
+    assert medallion_helpers.validate_bronze_event(event, "bronze/registry.parquet") == []
+    assert executed_checks == [
+        ("first", "bronze/registry.parquet"),
+        ("second", "bronze/registry.parquet"),
+    ]
+
+
 def test_bronze_to_silver_quarantines_invalid_events(monkeypatch):
     valid_event = make_bronze_event()
     invalid_event = make_bronze_event(

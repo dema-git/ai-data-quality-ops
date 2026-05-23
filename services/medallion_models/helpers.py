@@ -68,58 +68,133 @@ def bronze_to_silver(event: BronzeWebEvent) -> SilverWebEvent:
     )
 
 
-def validate_bronze_event(
+def check_event_time(
     event: BronzeWebEvent,
     source_object_name: str = "",
 ) -> List[QualityIssue]:
-    """
-    Validate a Bronze event before it is promoted to Silver.
+    """Check that the raw event timestamp can be normalized downstream."""
+    try:
+        datetime.fromisoformat(event.event_time)
+    except (TypeError, ValueError):
+        return [
+            build_quality_issue(
+                event=event,
+                issue_type="invalid_event_time",
+                issue_field="event_time",
+                severity="error",
+                source_object_name=source_object_name,
+            )
+        ]
+    return []
 
-    The function returns all detected issues instead of raising. This lets the
-    ETL pipeline quarantine bad records while continuing to process valid ones.
-    """
+
+def check_required_ids(
+    event: BronzeWebEvent,
+    source_object_name: str = "",
+) -> List[QualityIssue]:
+    """Check identifiers required to associate events with sessions and users."""
     issues: List[QualityIssue] = []
-
-    def add_issue(issue_type: str, issue_field: str, severity: str = "error") -> None:
+    if _is_missing(event.session_id):
         issues.append(
             build_quality_issue(
                 event=event,
-                issue_type=issue_type,
-                issue_field=issue_field,
-                severity=severity,
+                issue_type="missing_session_id",
+                issue_field="session_id",
+                severity="error",
                 source_object_name=source_object_name,
             )
         )
 
-    try:
-        datetime.fromisoformat(event.event_time)
-    except (TypeError, ValueError):
-        add_issue("invalid_event_time", "event_time")
-
-    if _is_missing(event.session_id):
-        add_issue("missing_session_id", "session_id")
-
     if _is_missing(event.user_id):
-        add_issue("missing_user_id", "user_id")
+        issues.append(
+            build_quality_issue(
+                event=event,
+                issue_type="missing_user_id",
+                issue_field="user_id",
+                severity="error",
+                source_object_name=source_object_name,
+            )
+        )
+    return issues
 
+
+def check_event_type(
+    event: BronzeWebEvent,
+    source_object_name: str = "",
+) -> List[QualityIssue]:
+    """Check that the event belongs to the supported business event set."""
     if event.event_type not in VALID_EVENT_TYPES:
-        add_issue("unknown_event_type", "event_type")
+        return [
+            build_quality_issue(
+                event=event,
+                issue_type="unknown_event_type",
+                issue_field="event_type",
+                severity="error",
+                source_object_name=source_object_name,
+            )
+        ]
+    return []
 
+
+def check_price(
+    event: BronzeWebEvent,
+    source_object_name: str = "",
+) -> List[QualityIssue]:
+    """Check that a supplied price is numeric and non-negative."""
     try:
         invalid_price = event.price is not None and float(event.price) < 0
     except (TypeError, ValueError):
         invalid_price = True
 
     if invalid_price:
-        add_issue("negative_price", "price")
+        return [
+            build_quality_issue(
+                event=event,
+                issue_type="negative_price",
+                issue_field="price",
+                severity="error",
+                source_object_name=source_object_name,
+            )
+        ]
+    return []
 
+
+def check_purchase_consistency(
+    event: BronzeWebEvent,
+    source_object_name: str = "",
+) -> List[QualityIssue]:
+    """Check business consistency rules for purchase events."""
     if event.event_type == "purchase" and _is_missing(event.product_id):
-        add_issue("purchase_without_product", "product_id")
+        return [
+            build_quality_issue(
+                event=event,
+                issue_type="purchase_without_product",
+                issue_field="product_id",
+                severity="error",
+                source_object_name=source_object_name,
+            )
+        ]
+    return []
 
+
+def check_extra_payload(
+    event: BronzeWebEvent,
+    source_object_name: str = "",
+) -> List[QualityIssue]:
+    """Check the optional analytical fields carried in the event payload."""
+    issues: List[QualityIssue] = []
     extra = event.extra if isinstance(event.extra, dict) else {}
 
     if event.extra is not None and not isinstance(event.extra, dict):
-        add_issue("invalid_extra_payload", "extra")
+        issues.append(
+            build_quality_issue(
+                event=event,
+                issue_type="invalid_extra_payload",
+                issue_field="extra",
+                severity="error",
+                source_object_name=source_object_name,
+            )
+        )
 
     scroll_depth = extra.get("scroll_depth")
     try:
@@ -128,12 +203,54 @@ def validate_bronze_event(
         invalid_scroll_depth = True
 
     if invalid_scroll_depth:
-        add_issue("invalid_scroll_depth", "extra.scroll_depth")
+        issues.append(
+            build_quality_issue(
+                event=event,
+                issue_type="invalid_scroll_depth",
+                issue_field="extra.scroll_depth",
+                severity="error",
+                source_object_name=source_object_name,
+            )
+        )
 
     ab_group = extra.get("ab_group")
     if ab_group is not None and ab_group not in VALID_AB_GROUPS:
-        add_issue("invalid_ab_group", "extra.ab_group")
+        issues.append(
+            build_quality_issue(
+                event=event,
+                issue_type="invalid_ab_group",
+                issue_field="extra.ab_group",
+                severity="error",
+                source_object_name=source_object_name,
+            )
+        )
 
+    return issues
+
+
+QUALITY_CHECKS = [
+    check_event_time,
+    check_required_ids,
+    check_event_type,
+    check_price,
+    check_purchase_consistency,
+    check_extra_payload,
+]
+
+
+def validate_bronze_event(
+    event: BronzeWebEvent,
+    source_object_name: str = "",
+) -> List[QualityIssue]:
+    """
+    Run all deterministic checks before a Bronze event is promoted to Silver.
+
+    The function returns all detected issues instead of raising. This lets the
+    ETL pipeline quarantine bad records while continuing to process valid ones.
+    """
+    issues: List[QualityIssue] = []
+    for check in QUALITY_CHECKS:
+        issues.extend(check(event, source_object_name))
     return issues
 
 
