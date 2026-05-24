@@ -20,7 +20,8 @@ from services.medallion_pipeline.incident_agent_router import (
 log = AppLogger(component="ai_incident_service")
 
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
-DEFAULT_OPENAI_MODEL = "gpt-5.4-mini"
+DEFAULT_OPENAI_MODEL = "gpt-5.4-nano"
+DEFAULT_OPENAI_MAX_OUTPUT_TOKENS = 800
 DEFAULT_ANALYSIS_MODE = "mock"
 
 INCIDENT_EXPLANATION_SCHEMA = {
@@ -107,11 +108,13 @@ def _build_mock_explanation(routed_incident: Dict[str, Any]) -> Dict[str, Any]:
 def _build_openai_payload(
     routed_incident: Dict[str, Any],
     model: str,
+    max_output_tokens: int,
 ) -> Dict[str, Any]:
     agent = routed_incident["agent"]
     context = routed_incident["incident_context"]
     return {
         "model": model,
+        "max_output_tokens": max_output_tokens,
         "input": [
             {
                 "role": "developer",
@@ -154,12 +157,35 @@ def _extract_openai_explanation(response_payload: Dict[str, Any]) -> Dict[str, A
     raise AIIncidentProviderError("OpenAI returned no structured incident explanation.")
 
 
+def _get_openai_max_output_tokens() -> int:
+    configured_value = os.getenv(
+        "OPENAI_MAX_OUTPUT_TOKENS",
+        str(DEFAULT_OPENAI_MAX_OUTPUT_TOKENS),
+    )
+    try:
+        max_output_tokens = int(configured_value)
+    except ValueError as exc:
+        raise AIIncidentConfigurationError(
+            "OPENAI_MAX_OUTPUT_TOKENS must be a positive integer."
+        ) from exc
+
+    if max_output_tokens < 1:
+        raise AIIncidentConfigurationError(
+            "OPENAI_MAX_OUTPUT_TOKENS must be a positive integer."
+        )
+    return max_output_tokens
+
+
 def _request_openai_explanation(
     routed_incident: Dict[str, Any],
     api_key: str,
     model: str,
 ) -> Dict[str, Any]:
-    payload = _build_openai_payload(routed_incident, model)
+    payload = _build_openai_payload(
+        routed_incident,
+        model,
+        max_output_tokens=_get_openai_max_output_tokens(),
+    )
     request = Request(
         OPENAI_RESPONSES_URL,
         data=json.dumps(payload).encode("utf-8"),
@@ -179,7 +205,17 @@ def _request_openai_explanation(
     try:
         with urlopen(request, timeout=timeout_seconds) as response:
             return _extract_openai_explanation(json.loads(response.read().decode("utf-8")))
-    except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
+    except HTTPError as exc:
+        try:
+            error_payload = json.loads(exc.read().decode("utf-8"))
+            error_message = error_payload.get("error", {}).get("message")
+        except (ValueError, json.JSONDecodeError):
+            error_message = None
+        safe_message = error_message or "Provider rejected the request."
+        raise AIIncidentProviderError(
+            f"OpenAI request failed with HTTP {exc.code}: {safe_message}"
+        ) from exc
+    except (URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
         raise AIIncidentProviderError(
             "OpenAI incident explanation request failed."
         ) from exc

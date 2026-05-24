@@ -227,7 +227,8 @@ The default mode is local and does not require an external API key:
 
 ```env
 AI_INCIDENT_ANALYSIS_MODE=mock
-OPENAI_MODEL=gpt-5.4-mini
+OPENAI_MODEL=gpt-5.4-nano
+OPENAI_MAX_OUTPUT_TOKENS=800
 OPENAI_REQUEST_TIMEOUT_SECONDS=30
 ```
 
@@ -248,13 +249,16 @@ For real model execution, configure the server-side environment only:
 ```env
 AI_INCIDENT_ANALYSIS_MODE=openai
 OPENAI_API_KEY=your-api-key
-OPENAI_MODEL=gpt-5.4-mini
+OPENAI_MODEL=gpt-5.4-nano
+OPENAI_MAX_OUTPUT_TOKENS=800
 ```
 
 In `openai` mode, the service calls the OpenAI Responses API and requests a
 strict JSON-schema response. The model receives a compact incident context
 produced from validation facts, not arbitrary raw pipeline data. The API key
 is never returned through the endpoint or exposed in the dashboard.
+`OPENAI_MAX_OUTPUT_TOKENS` caps each generated explanation so manual tests
+cannot produce unexpectedly long responses.
 
 ## Local Setup
 

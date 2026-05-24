@@ -7,9 +7,11 @@
 #####################################################################
 
 import importlib
+from io import BytesIO
 import json
 from pathlib import Path
 import sys
+from urllib.error import HTTPError
 
 import pytest
 
@@ -141,9 +143,11 @@ def test_openai_payload_requests_strict_structured_output():
     payload = ai_incident_service._build_openai_payload(
         _routed_incident(),
         model="test-model",
+        max_output_tokens=800,
     )
 
     assert payload["model"] == "test-model"
+    assert payload["max_output_tokens"] == 800
     assert payload["text"]["format"]["type"] == "json_schema"
     assert payload["text"]["format"]["strict"] is True
     assert (
@@ -151,6 +155,22 @@ def test_openai_payload_requests_strict_structured_output():
         == ai_incident_service.INCIDENT_EXPLANATION_SCHEMA
     )
     assert json.loads(payload["input"][1]["content"])["total_issues"] == 4
+
+
+def test_openai_max_output_tokens_uses_bounded_default(monkeypatch):
+    monkeypatch.delenv("OPENAI_MAX_OUTPUT_TOKENS", raising=False)
+
+    assert (
+        ai_incident_service._get_openai_max_output_tokens()
+        == ai_incident_service.DEFAULT_OPENAI_MAX_OUTPUT_TOKENS
+    )
+
+
+def test_openai_max_output_tokens_rejects_invalid_value(monkeypatch):
+    monkeypatch.setenv("OPENAI_MAX_OUTPUT_TOKENS", "0")
+
+    with pytest.raises(ai_incident_service.AIIncidentConfigurationError):
+        ai_incident_service._get_openai_max_output_tokens()
 
 
 def test_openai_request_rejects_invalid_timeout(monkeypatch):
@@ -162,3 +182,32 @@ def test_openai_request_rejects_invalid_timeout(monkeypatch):
             api_key="test-key",
             model="test-model",
         )
+
+
+def test_openai_request_exposes_safe_provider_http_error(monkeypatch):
+    monkeypatch.setenv("OPENAI_REQUEST_TIMEOUT_SECONDS", "30")
+
+    def reject_request(request, timeout):
+        raise HTTPError(
+            request.full_url,
+            400,
+            "Bad Request",
+            hdrs=None,
+            fp=BytesIO(
+                b'{"error":{"message":"Requested model is not available."}}'
+            ),
+        )
+
+    monkeypatch.setattr(ai_incident_service, "urlopen", reject_request)
+
+    with pytest.raises(ai_incident_service.AIIncidentProviderError) as exc_info:
+        ai_incident_service._request_openai_explanation(
+            _routed_incident(),
+            api_key="test-key",
+            model="test-model",
+        )
+
+    assert (
+        str(exc_info.value)
+        == "OpenAI request failed with HTTP 400: Requested model is not available."
+    )
