@@ -1,0 +1,104 @@
+{% if error %}
+<div class="card shadow-sm border-danger">
+    <div class="card-body small">
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+            <h3 class="h6 mb-0 text-danger">AI incident explanation unavailable</h3>
+            <span class="badge text-bg-danger">error</span>
+        </div>
+        <p class="mb-0 text-muted">{{ error }}</p>
+    </div>
+</div>
+{% elif result.analysis_status != "generated" %}
+<div class="card shadow-sm border-0">
+    <div class="card-body small">
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+            <h3 class="h6 mb-0">No active incident to explain</h3>
+            <span class="badge text-bg-secondary">{{ result.analysis_status }}</span>
+        </div>
+        <p class="mb-0 text-muted">
+            The quality router did not find a routed incident for the current data.
+        </p>
+    </div>
+</div>
+{% else %}
+{% set context = result.incident_context %}
+{% set details = context.dominant_category_details or {} %}
+{% set explanation = result.explanation %}
+<div class="card shadow-sm border-0">
+    <div class="card-body small">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+            <div>
+                <h3 class="h6 mb-1">{{ context.title }}</h3>
+                <p class="text-muted mb-0">
+                    {{ result.agent.display_name }} · {{ context.pipeline_stage }}
+                </p>
+            </div>
+            <div class="d-flex flex-wrap gap-1 justify-content-end">
+                <span class="badge text-bg-primary">{{ result.provider }}</span>
+                <span class="badge text-bg-light text-dark border">{{ result.model }}</span>
+                <span class="badge text-bg-secondary">confidence: {{ explanation.confidence }}</span>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-md-4">
+                <div class="border rounded p-2 h-100 bg-light">
+                    <div class="text-muted">Total rejected records</div>
+                    <div class="fs-5 fw-semibold">{{ context.total_issues }}</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="border rounded p-2 h-100 bg-light">
+                    <div class="text-muted">Dominant category</div>
+                    <div class="fs-6 fw-semibold">{{ context.dominant_category }}</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="border rounded p-2 h-100 bg-light">
+                    <div class="text-muted">Latest detection</div>
+                    <div class="fs-6 fw-semibold">{{ context.latest_detected_at or "n/a" }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <h4 class="h6 mb-2">Issue breakdown</h4>
+            {% if details.issue_types %}
+            <div class="d-flex flex-wrap gap-2">
+                {% for issue in details.issue_types %}
+                <span class="badge text-bg-light text-dark border">
+                    {{ issue.issue_type }}: {{ issue.count }}
+                </span>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">No issue-type breakdown available.</p>
+            {% endif %}
+        </div>
+
+        <div class="mb-3">
+            <h4 class="h6 mb-2">Assessment</h4>
+            <p class="mb-0">{{ explanation.assessment }}</p>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-12 col-lg-6">
+                <h4 class="h6 mb-2">Possible causes</h4>
+                <ul class="incident-list mb-0">
+                    {% for cause in explanation.possible_causes %}
+                    <li>{{ cause }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="col-12 col-lg-6">
+                <h4 class="h6 mb-2">Recommended checks</h4>
+                <ul class="incident-list mb-0">
+                    {% for check in explanation.recommended_checks %}
+                    <li>{{ check }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}

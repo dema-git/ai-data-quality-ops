@@ -21,6 +21,23 @@
     .pipeline-list ol > li {
         margin-bottom: 0.55rem;
     }
+
+    .htmx-indicator {
+        display: none;
+    }
+
+    .htmx-request .htmx-indicator,
+    .htmx-request.htmx-indicator {
+        display: inline-block;
+    }
+
+    .incident-list {
+        padding-left: 1.1rem;
+    }
+
+    .incident-list li {
+        margin-bottom: 0.35rem;
+    }
     </style>
 </head>
 <body class="bg-light">
@@ -84,6 +101,36 @@
         </div>
     </section>
 
+    <!-- AI incident explanation -->
+    <section class="mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+            <h2 class="h4 mb-0">AI incident explanation</h2>
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-primary"
+                hx-post="/dashboard/quality/incident-explanation"
+                hx-target="#incident-explanation-result"
+                hx-swap="innerHTML"
+                hx-indicator="#incident-explanation-loading"
+            >
+                Analyze current incident
+            </button>
+        </div>
+        <div id="incident-explanation-loading" class="htmx-indicator text-muted small mb-2">
+            Analyzing current incident...
+        </div>
+        <div id="incident-explanation-result">
+            <div class="card shadow-sm border-0">
+                <div class="card-body small">
+                    <p class="text-muted mb-0">
+                        Run analysis manually to summarize the latest quality incident.
+                        Mock mode returns a local explanation; OpenAI mode calls the configured model once per click.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Pipeline description -->
     <section class="card shadow-sm">
         <div class="card-body small pipeline-list">
@@ -103,7 +150,7 @@
             <li>A Cleanup DAG removes archived files permanently from MinIO.</li>
             <li>The FastAPI Analytics API exposes aggregated metrics and pipeline information.</li>
             <li>The monitoring UI shows live ETL metrics, file counts, and system status using HTMX.</li>
-            <li>The AI ops layer will use structured quality reports to summarize incidents and suggest next checks.</li>
+            <li>The AI ops layer uses structured quality reports to summarize incidents and suggest next checks.</li>
             <li>All logs are structured JSON and collected by Grafana / Prometheus / Loki for full observability.</li>
         </ol>
         </div>
