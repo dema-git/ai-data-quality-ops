@@ -20,6 +20,11 @@ from services.medallion_pipeline.quality_service import (
     get_quality_issues_summary,
     get_top_issue_types,
 )
+from services.medallion_pipeline.ai_incident_service import (
+    AIIncidentConfigurationError,
+    AIIncidentProviderError,
+    generate_incident_explanation,
+)
 from fastapi.templating import Jinja2Templates
 from db_utils.database import get_db_session
 from services.faker.config import FakerConfig
@@ -92,5 +97,34 @@ async def dashboard_operations(request: Request):
             "request": request,
             "latest_runs": latest_runs,
             "outbox": outbox_status,
+        },
+    )
+
+
+@router.post(
+    "/dashboard/quality/incident-explanation",
+    response_class=HTMLResponse,
+    include_in_schema=False,
+)
+async def dashboard_quality_incident_explanation(request: Request):
+    """
+    Render the latest AI incident explanation for the dashboard.
+
+    The route is intentionally manual-only from the UI. It does not refresh
+    automatically, so OpenAI mode cannot spend tokens on every dashboard poll.
+    """
+    try:
+        result = generate_incident_explanation(recent_limit=5)
+        error = None
+    except (AIIncidentConfigurationError, AIIncidentProviderError) as exc:
+        result = None
+        error = str(exc)
+
+    return templates.TemplateResponse(
+        request,
+        "partials/incident_explanation.html",
+        {
+            "result": result,
+            "error": error,
         },
     )
