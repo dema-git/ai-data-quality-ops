@@ -281,7 +281,7 @@ http://localhost:8000/docs
 http://localhost:8000/redoc
 ```
 
-![Swagger UI](readme_assets/dataflow_swagger.png)
+![Swagger UI](readme_assets/dataflow_swagger_v2.png)
 
 Main endpoint groups:
 
