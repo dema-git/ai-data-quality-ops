@@ -270,7 +270,7 @@ It shows:
 
 The AI dashboard block is manual. It does not auto-refresh and does not call OpenAI on every dashboard poll. In `openai` mode, one click on `Analyze current incident` means one model request.
 
-![Dashboard](readme_assets/dataflow_dashboard.png)
+![Dashboard](readme_assets/dataflow_dashboard_v2.png)
 
 ## API Docs
 
