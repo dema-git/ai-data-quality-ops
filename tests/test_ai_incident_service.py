@@ -173,8 +173,44 @@ def test_openai_max_output_tokens_rejects_invalid_value(monkeypatch):
         ai_incident_service._get_openai_max_output_tokens()
 
 
+def test_openai_max_output_tokens_rejects_oversized_value(monkeypatch):
+    monkeypatch.setenv(
+        "OPENAI_MAX_OUTPUT_TOKENS",
+        str(ai_incident_service.MAX_OPENAI_MAX_OUTPUT_TOKENS + 1),
+    )
+
+    with pytest.raises(ai_incident_service.AIIncidentConfigurationError):
+        ai_incident_service._get_openai_max_output_tokens()
+
+
+def test_openai_mode_rejects_empty_model(monkeypatch):
+    monkeypatch.setenv("AI_INCIDENT_ANALYSIS_MODE", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
+    monkeypatch.setenv("OPENAI_MODEL", "   ")
+    monkeypatch.setattr(
+        ai_incident_service,
+        "get_routed_quality_incident",
+        lambda recent_limit: _routed_incident(),
+    )
+
+    with pytest.raises(ai_incident_service.AIIncidentConfigurationError):
+        ai_incident_service.generate_incident_explanation()
+
+
 def test_openai_request_rejects_invalid_timeout(monkeypatch):
     monkeypatch.setenv("OPENAI_REQUEST_TIMEOUT_SECONDS", "not-a-number")
+
+    with pytest.raises(ai_incident_service.AIIncidentConfigurationError):
+        ai_incident_service._request_openai_explanation(
+            _routed_incident(),
+            api_key="test-key",
+            model="test-model",
+        )
+
+
+@pytest.mark.parametrize("timeout_value", ["0", "-1", "61"])
+def test_openai_request_rejects_out_of_range_timeout(monkeypatch, timeout_value):
+    monkeypatch.setenv("OPENAI_REQUEST_TIMEOUT_SECONDS", timeout_value)
 
     with pytest.raises(ai_incident_service.AIIncidentConfigurationError):
         ai_incident_service._request_openai_explanation(

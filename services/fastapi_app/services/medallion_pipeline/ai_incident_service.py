@@ -22,6 +22,8 @@ log = AppLogger(component="ai_incident_service")
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 DEFAULT_OPENAI_MODEL = "gpt-5.4-nano"
 DEFAULT_OPENAI_MAX_OUTPUT_TOKENS = 800
+MAX_OPENAI_MAX_OUTPUT_TOKENS = 2000
+MAX_OPENAI_REQUEST_TIMEOUT_SECONDS = 60
 DEFAULT_ANALYSIS_MODE = "mock"
 
 INCIDENT_EXPLANATION_SCHEMA = {
@@ -173,7 +175,38 @@ def _get_openai_max_output_tokens() -> int:
         raise AIIncidentConfigurationError(
             "OPENAI_MAX_OUTPUT_TOKENS must be a positive integer."
         )
+    if max_output_tokens > MAX_OPENAI_MAX_OUTPUT_TOKENS:
+        raise AIIncidentConfigurationError(
+            f"OPENAI_MAX_OUTPUT_TOKENS must be <= {MAX_OPENAI_MAX_OUTPUT_TOKENS}."
+        )
     return max_output_tokens
+
+
+def _get_openai_model() -> str:
+    model = os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL).strip()
+    if not model:
+        raise AIIncidentConfigurationError("OPENAI_MODEL must not be empty.")
+    return model
+
+
+def _get_openai_request_timeout_seconds() -> float:
+    try:
+        timeout_seconds = float(os.getenv("OPENAI_REQUEST_TIMEOUT_SECONDS", "30"))
+    except ValueError as exc:
+        raise AIIncidentConfigurationError(
+            "OPENAI_REQUEST_TIMEOUT_SECONDS must be a number."
+        ) from exc
+
+    if timeout_seconds <= 0:
+        raise AIIncidentConfigurationError(
+            "OPENAI_REQUEST_TIMEOUT_SECONDS must be positive."
+        )
+    if timeout_seconds > MAX_OPENAI_REQUEST_TIMEOUT_SECONDS:
+        raise AIIncidentConfigurationError(
+            "OPENAI_REQUEST_TIMEOUT_SECONDS must be <= "
+            f"{MAX_OPENAI_REQUEST_TIMEOUT_SECONDS}."
+        )
+    return timeout_seconds
 
 
 def _request_openai_explanation(
@@ -195,12 +228,7 @@ def _request_openai_explanation(
         },
         method="POST",
     )
-    try:
-        timeout_seconds = float(os.getenv("OPENAI_REQUEST_TIMEOUT_SECONDS", "30"))
-    except ValueError as exc:
-        raise AIIncidentConfigurationError(
-            "OPENAI_REQUEST_TIMEOUT_SECONDS must be a number."
-        ) from exc
+    timeout_seconds = _get_openai_request_timeout_seconds()
 
     try:
         with urlopen(request, timeout=timeout_seconds) as response:
@@ -238,11 +266,12 @@ def generate_incident_explanation(recent_limit: int = 5) -> Dict[str, Any]:
         }
 
     mode = os.getenv("AI_INCIDENT_ANALYSIS_MODE", DEFAULT_ANALYSIS_MODE).strip().lower()
-    model = os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL).strip()
     if mode == "mock":
         explanation = _build_mock_explanation(routed_incident)
         provider = "mock"
+        model = os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL).strip()
     elif mode == "openai":
+        model = _get_openai_model()
         api_key = os.getenv("OPENAI_API_KEY", "")
         if not api_key:
             raise AIIncidentConfigurationError(
