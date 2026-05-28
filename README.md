@@ -30,7 +30,7 @@ The AI part is deliberately kept out of the validation path. The code decides wh
 
 ## Architecture
 
-![Architecture](readme_assets/data_flow_arch.png)
+![Architecture](readme_assets/dataflow_arch.png)
 
 Flow:
 
@@ -281,7 +281,7 @@ http://localhost:8000/docs
 http://localhost:8000/redoc
 ```
 
-![Swagger UI](readme_assets/dataflow_swagger_v2.png)
+![Swagger UI](readme_assets/dataflow_swagger.png)
 
 Main endpoint groups:
 
